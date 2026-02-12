@@ -1,0 +1,81 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15
+    container_name: trade-db
+    environment:
+      POSTGRES_DB: trading
+      POSTGRES_USER: trader
+      POSTGRES_PASSWORD: trader123
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trader -d trading"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Java Order Matching Engine
+  order-engine:
+    build: ./order-engine
+    container_name: order-engine
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/trading
+      SPRING_DATASOURCE_USERNAME: trader
+      SPRING_DATASOURCE_PASSWORD: trader123
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Python Order Generator
+  order-generator:
+    build: ./order-generator
+    container_name: order-generator
+    environment:
+      ENGINE_URL: http://order-engine:8080
+      ORDERS_PER_SECOND: 5
+    depends_on:
+      order-engine:
+        condition: service_healthy
+
+  # Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml
+    depends_on:
+      - order-engine
+
+  # Grafana
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./monitoring/grafana/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml
+      - ./monitoring/grafana/dashboard.json:/var/lib/grafana/dashboards/trading.json
+      - ./monitoring/grafana/dashboard_provider.yml:/etc/grafana/provisioning/dashboards/provider.yml
+    depends_on:
+      - prometheus
+
+volumes:
+  pgdata:

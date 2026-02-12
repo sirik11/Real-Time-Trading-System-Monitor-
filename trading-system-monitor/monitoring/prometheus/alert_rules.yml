@@ -1,0 +1,52 @@
+groups:
+  - name: trading_system_alerts
+    rules:
+      # High error rate alert
+      - alert: HighErrorRate
+        expr: rate(errors_total[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate detected in order matching engine"
+          description: "Error rate is {{ $value }} errors/sec over the last 5 minutes"
+
+      # High latency alert (p95 > 100ms)
+      - alert: HighMatchLatency
+        expr: histogram_quantile(0.95, rate(order_match_latency_seconds_bucket[5m])) > 0.1
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Order match latency p95 exceeds 100ms SLA"
+          description: "p95 latency is {{ $value }}s"
+
+      # Low throughput alert
+      - alert: LowThroughput
+        expr: rate(orders_received_total[5m]) < 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Order throughput has dropped significantly"
+          description: "Only {{ $value }} orders/sec received in last 5 minutes"
+
+      # Service down alert
+      - alert: ServiceDown
+        expr: up{job="order-engine"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Order matching engine is DOWN"
+          description: "The service has been unreachable for over 1 minute"
+
+      # High order book depth (possible matching issue)
+      - alert: HighOrderBookDepth
+        expr: order_book_depth > 10000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Order book depth is unusually high"
+          description: "{{ $value }} open orders — possible matching engine issue"
