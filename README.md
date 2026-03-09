@@ -118,6 +118,4 @@ This repository provides a solid foundation but can be extended in many ways:
 5. **Risk management** – incorporate pre‑trade checks, limits and monitoring of
    positions.
 
-By iterating on these features over the course of several weeks, you can
-transform this simulation into a polished showcase of your ability to design,
-build and operate mission‑critical systems.
+
